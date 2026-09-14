@@ -19,8 +19,8 @@ namespace UniTestify
         private const string PointerInputView = "game";
 
         /// <summary>自動復旧後も入力を届けられない場合に、原因と次の操作を同じ文面で伝えます。</summary>
-        private const string PointerInputFocusFailureMessage =
-            "Game View のフォーカス取得を試みましたが、1 フレーム待っても非フォーカスのため、ポインタ入力を送信しませんでした。Unity アプリ自体が背面にある可能性があります。Unity を前面にして Game View にフォーカスを合わせてから再実行してください。";
+        private const string FocusDependentInputFailureMessage =
+            "Game View のフォーカス取得を試みましたが、1 フレーム待っても非フォーカスのため、入力を送信しませんでした。Unity アプリ自体が背面にある可能性があります。Unity を前面にして Game View にフォーカスを合わせてから再実行してください。";
 
 #if ENABLE_INPUT_SYSTEM
         private const string GamepadDeviceName = "UniLabAI Gamepad";
@@ -59,7 +59,12 @@ namespace UniTestify
         /// Editor の既定の Input System 設定では Game View 非フォーカス時にポインタ入力の UI への伝播が捨てられるため、
         /// 送出前に到達可否を確認します。実機ではこの Editor 固有の制約がないため常に true を返します。
         /// </summary>
-        public static bool IsPointerInputAvailable
+        /// <summary>
+        /// Input System の既定 PointersAndKeyboardsRespectGameViewFocus では、
+        /// ポインタ「と キーボード」が Game View のフォーカスを要求する。
+        /// 非フォーカスでは Keyboard.current にも届かない。ゲームパッドだけは対象外。
+        /// </summary>
+        public static bool IsFocusDependentInputAvailable
         {
             get
             {
@@ -72,9 +77,9 @@ namespace UniTestify
         }
 
         /// <summary>非フォーカス時だけ復旧を試み、フレーム反映後の失敗理由を入力の呼び出し元へ返します。</summary>
-        internal static IEnumerator<object> EnsurePointerInputFocusAsync(System.Action<string> completed)
+        internal static IEnumerator<object> EnsureFocusDependentInputAsync(System.Action<string> completed)
         {
-            if (IsPointerInputAvailable)
+            if (IsFocusDependentInputAvailable)
             {
                 completed(string.Empty);
                 yield break;
@@ -84,7 +89,7 @@ namespace UniTestify
             // Focus の戻り値は要求の成否であり、Input System が入力を受け取れる状態とは限らない。
             // perf: フォーカス反映は要求時のコルーチンで 1 フレームだけ待ち、常駐処理を増やさない。
             yield return null;
-            completed(IsPointerInputAvailable ? string.Empty : PointerInputFocusFailureMessage);
+            completed(IsFocusDependentInputAvailable ? string.Empty : FocusDependentInputFailureMessage);
         }
 
         /// <summary>フレームを待てない同期呼び出しでもフォーカスを要求し、未送信であることを伝えます。</summary>
@@ -215,7 +220,7 @@ namespace UniTestify
         public static void PointerMove(Vector2 screenPosition)
         {
 #if ENABLE_INPUT_SYSTEM
-            if (!IsPointerInputAvailable)
+            if (!IsFocusDependentInputAvailable)
             {
                 EnsureDriver();
                 _driver.StartCoroutine(PointerMoveCoroutine(screenPosition));
@@ -243,10 +248,10 @@ namespace UniTestify
         public static IEnumerator Drag(Vector2 from, Vector2 to, float seconds, PointerButton button = PointerButton.Left)
         {
 #if ENABLE_INPUT_SYSTEM
-            if (!IsPointerInputAvailable)
+            if (!IsFocusDependentInputAvailable)
             {
-                yield return EnsurePointerInputFocusAsync(ReportPointerInputFocusFailure);
-                if (!IsPointerInputAvailable)
+                yield return EnsureFocusDependentInputAsync(ReportFocusDependentInputFailure);
+                if (!IsFocusDependentInputAvailable)
                 {
                     yield break;
                 }
@@ -294,7 +299,7 @@ namespace UniTestify
         public static void Scroll(Vector2 screenPosition, float amount)
         {
 #if ENABLE_INPUT_SYSTEM
-            if (!IsPointerInputAvailable)
+            if (!IsFocusDependentInputAvailable)
             {
                 EnsureDriver();
                 _driver.StartCoroutine(ScrollCoroutine(screenPosition, amount));
@@ -322,10 +327,10 @@ namespace UniTestify
         public static IEnumerator Swipe(Vector2 from, Vector2 to, float seconds)
         {
 #if ENABLE_INPUT_SYSTEM
-            if (!IsPointerInputAvailable)
+            if (!IsFocusDependentInputAvailable)
             {
-                yield return EnsurePointerInputFocusAsync(ReportPointerInputFocusFailure);
-                if (!IsPointerInputAvailable)
+                yield return EnsureFocusDependentInputAsync(ReportFocusDependentInputFailure);
+                if (!IsFocusDependentInputAvailable)
                 {
                     yield break;
                 }
@@ -367,10 +372,10 @@ namespace UniTestify
         public static IEnumerator Pinch(Vector2 center, float fromDistance, float toDistance, float seconds)
         {
 #if ENABLE_INPUT_SYSTEM
-            if (!IsPointerInputAvailable)
+            if (!IsFocusDependentInputAvailable)
             {
-                yield return EnsurePointerInputFocusAsync(ReportPointerInputFocusFailure);
-                if (!IsPointerInputAvailable)
+                yield return EnsureFocusDependentInputAsync(ReportFocusDependentInputFailure);
+                if (!IsFocusDependentInputAvailable)
                 {
                     yield break;
                 }
@@ -473,6 +478,17 @@ namespace UniTestify
 
         private static IEnumerator KeyCoroutine(Key key)
         {
+            // キーボードもフォーカスを要する。確認せずに送ると Input System が黙って捨て、
+            // 応答は成功のまま何も起きない（Karakuri-client #461）。
+            if (!IsFocusDependentInputAvailable)
+            {
+                yield return EnsureFocusDependentInputAsync(ReportFocusDependentInputFailure);
+                if (!IsFocusDependentInputAvailable)
+                {
+                    yield break;
+                }
+            }
+
             var keyboard = EnsureKeyboard();
             PressedKeys.Add(key);
             // Submit が UI のフレーム処理まで残るよう、押下と解放は通常更新で処理させる。
@@ -484,10 +500,10 @@ namespace UniTestify
 
         private static IEnumerator ClickCoroutine(Vector2 screenPosition, PointerButton button)
         {
-            if (!IsPointerInputAvailable)
+            if (!IsFocusDependentInputAvailable)
             {
-                yield return EnsurePointerInputFocusAsync(ReportPointerInputFocusFailure);
-                if (!IsPointerInputAvailable)
+                yield return EnsureFocusDependentInputAsync(ReportFocusDependentInputFailure);
+                if (!IsFocusDependentInputAvailable)
                 {
                     yield break;
                 }
@@ -514,10 +530,10 @@ namespace UniTestify
 
         private static IEnumerator TapCoroutine(Vector2 screenPosition)
         {
-            if (!IsPointerInputAvailable)
+            if (!IsFocusDependentInputAvailable)
             {
-                yield return EnsurePointerInputFocusAsync(ReportPointerInputFocusFailure);
-                if (!IsPointerInputAvailable)
+                yield return EnsureFocusDependentInputAsync(ReportFocusDependentInputFailure);
+                if (!IsFocusDependentInputAvailable)
                 {
                     yield break;
                 }
@@ -532,8 +548,8 @@ namespace UniTestify
 
         private static IEnumerator PointerMoveCoroutine(Vector2 screenPosition)
         {
-            yield return EnsurePointerInputFocusAsync(ReportPointerInputFocusFailure);
-            if (IsPointerInputAvailable)
+            yield return EnsureFocusDependentInputAsync(ReportFocusDependentInputFailure);
+            if (IsFocusDependentInputAvailable)
             {
                 SendPointerMove(screenPosition);
             }
@@ -541,14 +557,14 @@ namespace UniTestify
 
         private static IEnumerator ScrollCoroutine(Vector2 screenPosition, float amount)
         {
-            yield return EnsurePointerInputFocusAsync(ReportPointerInputFocusFailure);
-            if (IsPointerInputAvailable)
+            yield return EnsureFocusDependentInputAsync(ReportFocusDependentInputFailure);
+            if (IsFocusDependentInputAvailable)
             {
                 SendScroll(screenPosition, amount);
             }
         }
 
-        private static void ReportPointerInputFocusFailure(string message)
+        private static void ReportFocusDependentInputFailure(string message)
         {
             if (!string.IsNullOrEmpty(message))
             {

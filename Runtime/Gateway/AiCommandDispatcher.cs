@@ -239,7 +239,7 @@ namespace UniTestify
         private static AiCommandResponse ExecuteActionImmediately(string operation, AgentAction action)
         {
             if (AgentSessionCommands.HasSession && InputInjector.IsSupported
-                && AgentActionExecutor.UsesPointerInput(action) && !InputInjector.IsPointerInputAvailable)
+                && AgentActionExecutor.UsesFocusDependentInput(action) && !InputInjector.IsFocusDependentInputAvailable)
             {
                 // 同期の一括実行でも、フォーカス反映前に後続の入力だけが送られないよう拒否として返す。
                 return ConvertResult(operation, AgentSessionCommands.RejectAction(action, InputInjector.RequestPointerInputFocus()));
@@ -347,10 +347,10 @@ namespace UniTestify
 
             var waitedMilliseconds = anchorWaitedMilliseconds
                 + (string.IsNullOrEmpty(targetSpecification) ? 0 : (int)stopwatch.ElapsedMilliseconds);
-            if (InputInjector.IsSupported && AgentActionExecutor.UsesPointerInput(action))
+            if (InputInjector.IsSupported && AgentActionExecutor.UsesFocusDependentInput(action))
             {
                 var failureMessage = string.Empty;
-                using (var recovery = InputInjector.EnsurePointerInputFocusAsync(message => failureMessage = message))
+                using (var recovery = InputInjector.EnsureFocusDependentInputAsync(message => failureMessage = message))
                 {
                     while (recovery.MoveNext())
                     {
