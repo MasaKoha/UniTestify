@@ -99,7 +99,7 @@ namespace UniTestify
                 return "text を開始しました。";
             }
 
-            if (HasPointerInputAction(action) && !InputInjector.IsPointerInputAvailable)
+            if (HasFocusDependentAction(action) && !InputInjector.IsFocusDependentInputAvailable)
             {
                 return InputInjector.RequestPointerInputFocus();
             }
@@ -184,10 +184,15 @@ namespace UniTestify
                 || !string.IsNullOrEmpty(action.stick)
                 || !string.IsNullOrEmpty(action.key)
                 || !string.IsNullOrEmpty(action.text)
-                || HasPointerInputAction(action));
+                || HasFocusDependentAction(action));
         }
 
-        private static bool HasPointerInputAction(AgentAction action)
+        /// <summary>
+        /// Game View のフォーカスを要する行動か。Input System の既定
+        /// PointersAndKeyboardsRespectGameViewFocus では、ポインタ「と キーボード」が対象。
+        /// ゲームパッドだけは非フォーカスでも届く（Karakuri-client #461）。
+        /// </summary>
+        private static bool HasFocusDependentAction(AgentAction action)
         {
             return !string.IsNullOrEmpty(action.pointerMove)
                 || !string.IsNullOrEmpty(action.click)
@@ -195,11 +200,13 @@ namespace UniTestify
                 || !string.IsNullOrEmpty(action.scroll)
                 || !string.IsNullOrEmpty(action.tap)
                 || !string.IsNullOrEmpty(action.swipe)
-                || !string.IsNullOrEmpty(action.pinch);
+                || !string.IsNullOrEmpty(action.pinch)
+                || !string.IsNullOrEmpty(action.key)
+                || !string.IsNullOrEmpty(action.text);
         }
 
-        /// <summary>優先される非ポインタ操作に、別フィールドのフォーカス復旧が混入するのを防ぎます。</summary>
-        internal static bool UsesPointerInput(AgentAction action)
+        /// <summary>フォーカスを要さない操作に、別フィールドのフォーカス復旧が混入するのを防ぎます。</summary>
+        internal static bool UsesFocusDependentInput(AgentAction action)
         {
             switch (GetActionKind(action))
             {
@@ -210,6 +217,8 @@ namespace UniTestify
                 case "tap":
                 case "swipe":
                 case "pinch":
+                case "key":
+                case "text":
                     return true;
                 default:
                     return false;

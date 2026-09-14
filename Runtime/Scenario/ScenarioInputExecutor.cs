@@ -99,7 +99,7 @@ namespace UniTestify
             if (HasPointerInputAction(step))
             {
                 var failureMessage = string.Empty;
-                using (var recovery = InputInjector.EnsurePointerInputFocusAsync(message => failureMessage = message))
+                using (var recovery = InputInjector.EnsureFocusDependentInputAsync(message => failureMessage = message))
                 {
                     while (recovery.MoveNext())
                     {
