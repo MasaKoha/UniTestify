@@ -42,6 +42,24 @@ agent: busy=inputBlocked
 **手順を記録して回帰テストにできる。** AI が探索した操作列をそのまま JSON のシナリオへ書き出し、
 繰り返し実行できる。実行結果は撮影・監査・録画・合否の JSON として残る。
 
+```mermaid
+flowchart LR
+  subgraph Exploration["AI による探索"]
+    direction TB
+    Observe["画面・ゲーム状態を読む"] --> Decide["AI が操作を決める"]
+    Decide --> Act["準備を待って操作し<br/>落ち着いた画面を観測"]
+    Act -->|観測を返す| Decide
+  end
+  subgraph Regression["回帰テスト"]
+    direction TB
+    Export["回帰シナリオへ書き出す"] --> Replay["同じ手順を再実行する"]
+    Replay --> Artifacts["指定した成果物と<br/>合否の JSON を残す"]
+  end
+  Exploration -->|操作履歴| Regression
+```
+
+観測をもとに探索を繰り返し、その操作履歴を回帰シナリオと検証の成果物へつなげる流れを示します。
+
 このほか、Game View と Device Simulator の PNG 撮影（白紙かどうかの判定つき）、
 レイアウト監査（はみ出しと重なりの検出）、シーン階層のダンプ、コンソールログの取得、
 例外が出たときのスクリーンショットと UI 状態の自動保存、

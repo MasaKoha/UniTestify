@@ -67,6 +67,25 @@
 
 ## 押せるまで待つ、の中身
 
+```mermaid
+flowchart TB
+  Step["次のステップを始める"] --> Ready["条件と対象の準備を待つ<br/>（waitFor*・timeoutSeconds）"]
+  Ready --> Decision{"上限内に<br/>準備できたか"}
+  Decision -->|はい| Action["操作し、到着シーンを待つ<br/>（waitScene 指定時）"]
+  Decision -->|いいえ| Failure["失敗を記録し<br/>入力を見送る"]
+  Action --> Settle["指定フレーム数を待つ<br/>（settleFrames）"]
+  Failure --> Settle
+  Settle --> Artifacts["観測・差分判定と<br/>指定成果物の保存を行う"]
+  Artifacts --> Result["事後条件を判定し（expect）<br/>ステップの合否を記録する"]
+  Result --> Stop{"失敗し<br/>stopOnFail が有効か"}
+  Stop -->|はい| Finish["全体の結果 JSON を保存"]
+  Stop -->|いいえ| More{"次のステップが<br/>あるか"}
+  More -->|はい| Step
+  More -->|いいえ| Finish
+```
+
+通常の操作ステップについて、準備待ち・操作・記録の順序と、準備待ち失敗時の経路および継続条件を示します。
+
 `submit` / `click` / `tap` に対象を指定すれば、ランナーが操作対象の準備を**自動で待ち**、準備後に送出する。
 シナリオの前後で `snapshot` や `agent.find` を繰り返し、対象の存在を確認するポーリングは書かない。
 

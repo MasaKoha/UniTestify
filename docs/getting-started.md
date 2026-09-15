@@ -30,6 +30,28 @@
 
 既定の AI クライアントは **ファイル I/O** で Unity と話す（サンドボックスから localhost に届かない環境でも使える）。Unity 側の `AiMailboxServer` が `DebugOutput/agent-mailbox/` を監視し、`req-*.json` を処理して `res-*.json` を書く。実機への HTTP 接続は [後述の接続手順](#6-実機へ-http-で一手ずつ接続する) を使う。
 
+```mermaid
+sequenceDiagram
+  participant Client as 外部クライアント<br/>（ai_client.py）
+  participant Files as 共有フォルダ<br/>（agent-mailbox）
+  participant Server as Unity 内の受信係<br/>（AiMailboxServer）
+  participant Dispatcher as 共通処理<br/>（AiCommandDispatcher）
+  Note over Server,Dispatcher: Play 中・メールボックス起動済み
+  Note over Client,Server: 要求・応答は .tmp を閉じてから名前を変えて公開する
+  Client->>Files: 要求を書く（req-ID.json）
+  Server->>Files: 要求ファイルを監視し、1 件読む
+  Files-->>Server: 要求 JSON
+  Server->>Dispatcher: 非同期で処理を依頼する
+  Note over Dispatcher: 操作・観測と、op に必要な待機を行う
+  Dispatcher-->>Server: 応答 JSON
+  Server->>Files: 応答を書く（res-ID.json）
+  Server->>Files: 応答公開後、要求を削除する
+  Client->>Files: 同じ ID の応答を待って読む
+  Files-->>Client: 応答 JSON
+```
+
+クライアントが要求を書き、Unity が処理して応答を書き、クライアントが同じ識別子の応答を読む往復を示します。
+
 起動方法は 3 つ（どれか 1 つ）:
 
 1. **自動起動**: Play を始める前に `DebugOutput/agent-mailbox/.enabled` を置く。`ai_client.py` は初回に自動で置く
@@ -41,6 +63,28 @@
 パッケージを読み込んだ Editor では `EditorControlMailbox` が自動で常駐し、
 プロジェクト直下の `DebugOutput/editor-mailbox/` を監視する。開始メニューや `.enabled` は不要。
 `editor_ctl.py` で、起動済み Editor の Play / Stop / Pause / フォーカス / メニューを操作できる。
+
+```mermaid
+flowchart LR
+  subgraph Clients["外部プロセス"]
+    GameClient["ゲーム操作クライアント<br/>（ai_client.py）"]
+    EditorClient["Editor 操作クライアント<br/>（editor_ctl.py）"]
+  end
+  subgraph Files["共有フォルダ（DebugOutput）"]
+    GameMailbox["ゲーム操作用<br/>（agent-mailbox）"]
+    EditorMailbox["Editor 操作用<br/>（editor-mailbox）"]
+  end
+  subgraph Unity["起動済み Unity Editor"]
+    GameServer["Play 中のゲーム操作<br/>（AiMailboxServer）"]
+    EditorServer["Play 停止中も使える<br/>Editor 操作<br/>（EditorControlMailbox）"]
+  end
+  GameClient <-->|要求・応答| GameMailbox
+  GameMailbox <-->|要求・応答| GameServer
+  EditorClient <-->|要求・応答| EditorMailbox
+  EditorMailbox <-->|要求・応答| EditorServer
+```
+
+ゲーム操作と Editor 操作が、それぞれ別のクライアントとメールボックスを通る構成を示します。
 
 Unity プロジェクトのルートから実行する:
 
