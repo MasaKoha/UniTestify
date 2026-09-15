@@ -411,6 +411,20 @@ Canvas activeInHierarchy=true
 
 ## 観測テキストの読み方
 
+```mermaid
+flowchart TB
+  Ui["シーン・フォーカスと UI<br/>文言・操作可否・遮蔽など"] --> Snapshot["観測データを収集・共有<br/>（UiSnapshot）"]
+  Game["ゲームが登録した状態<br/>（IGameStateProvider）"] --> Snapshot
+  Snapshot --> Body["表示範囲で本文を絞る<br/>（scope）"]
+  Snapshot --> Candidates["押せる操作候補を生成"]
+  Body --> Formatter["本文と補足情報を整形<br/>（AgentObservationFormatter）"]
+  Candidates --> Formatter
+  Status["入力・遷移の状態<br/>セッション設定・目標"] --> Formatter
+  Formatter --> Text["観測テキストを返す<br/>（text）"]
+```
+
+差分指定のない画面観測（agent.observe）で、UI とゲーム状態を収集し、操作候補やセッション情報を加えてテキストへ変換する流れを示します。
+
 文言の観測対象は `TextMeshProUGUI` と legacy uGUI の `UnityEngine.UI.Text`（派生型を含む）。
 独立した文言はどちらも既存の `kind:"Text"` / `[Text]` で出力し、空文字は要素化しない。
 Selectable 配下の文言は親のラベルへまとめる。観測用ラベルの候補が混在するときは従来の TMP を優先する。

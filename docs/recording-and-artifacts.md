@@ -34,6 +34,26 @@
 
 録画は連番 JPG（品質 90）で出し、mp4 への変換は呼び出し側が ffmpeg で行う（ゲームコードにプロセス起動を持ち込まないため）。
 
+```mermaid
+flowchart LR
+  subgraph Unity["Unity 内の録画と保存"]
+    Recorder["画面・実時間を記録"]
+    Recorder --> Frames["連番画像<br/>（JPG）"]
+    Recorder --> Timing["フレームと実測表示時間<br/>（frames.txt）"]
+    Recorder --> Manifest["録画情報・マーカーと<br/>変換コマンド<br/>（recording-manifest.json）"]
+    Recorder -->|録音を指定した場合| Audio["音声<br/>（audio.wav）"]
+  end
+  subgraph Caller["呼び出し側"]
+    Convert["動画へ変換する<br/>（ffmpeg）"] --> Movie["動画ファイル<br/>（mp4）"]
+  end
+  Frames --> Convert
+  Timing --> Convert
+  Audio -->|録音時のみ多重化する| Convert
+  Manifest -.->|変換コマンド| Convert
+```
+
+Unity が保存した画像・時間情報・任意の音声を、呼び出し側が manifest の変換コマンドで動画にする流れを示します。
+
 ```json
 { "submit": "RoomCard0", "recordStart": true, "recordFps": 60, "recordAudio": true },
 { "settleFrames": 600, "recordStop": "battle_first_fight" }

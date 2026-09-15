@@ -6,24 +6,36 @@
 
 ## 全体像
 
+```mermaid
+flowchart LR
+  subgraph Entrances["外部クライアントからの入口"]
+    Mailbox["ファイル入出力の受信<br/>（AiMailboxServer）"]
+    Http["HTTP 受信（POST /op）<br/>（AiHttpServer）"]
+    Pipeline["Unity 公式 CLI・任意<br/>（Pipeline の CliCommand）"]
+  end
+  Mailbox -->|1 件ずつ非同期| Dispatcher["Runtime op の共通入口<br/>（AiCommandDispatcher）"]
+  Http -->|1 件ずつ非同期| Dispatcher
+  Pipeline -->|同期| Dispatcher
+  Dispatcher --> Session["観測・行動・記録<br/>（AgentSession）"]
+  Dispatcher --> Snapshot["UI 状態の収集<br/>（UiSnapshot）"]
+  Dispatcher --> Capture["撮影<br/>（AiCaptureSupport）"]
+  Dispatcher --> Scenario["シナリオ起動・待機<br/>（AiScenarioExecution）"]
+  Dispatcher --> Console["ログ取得<br/>（AiConsoleLog）"]
 ```
- AI クライアント（Claude Code / Codex / 人）
-   ├─ ファイル I/O → AiMailboxServer（1 件ずつ非同期）
-   ├─ POST /op    → AiHttpServer（1 件ずつ非同期）
-   └─ Unity 公式 CLI → Pipeline/[CliCommand]（同期）
-                        │
-                        ▼
-                AiCommandDispatcher（Runtime op → 実装。共通の入口）
-      ┌───────────┬───────────┬───────────┬────────────┐
-      ▼           ▼           ▼           ▼            ▼
- AgentSession   UiSnapshot  AiCaptureSupport  AiScenarioExecution  AiConsoleLog
- （観測・行動・記録）（目）    （撮影）        （ランナー起動・待機） （ログ）
-      │
-      ├─ AgentActionExecutor   … 行動 JSON の解釈と InputInjector への送出
-      ├─ AgentObservationFormatter … 観測テキストの整形（候補・game・busy・goalFailures）
-      ├─ AgentSessionArtifacts … actions.jsonl / session.json / scenario.json
-      └─ AgentSessionGuards    … 予算・反復検出・forbid
+
+Runtime op の三つの入口が共通ディスパッチャへ合流し、各機能へ処理を振り分ける構成を示します。
+
+```mermaid
+flowchart LR
+  Session["観測・行動・記録<br/>（AgentSession）"]
+  Session --> Action["行動 JSON の解釈・送出<br/>（AgentActionExecutor）"]
+  Session --> Formatter["観測本文と補足情報の整形<br/>（AgentObservationFormatter）"]
+  Session --> Artifacts["履歴・結果・シナリオ保存<br/>（AgentSessionArtifacts）"]
+  Session --> Guards["停止条件を判定<br/>予算・反復・禁止条件<br/>（AgentSessionGuards）"]
+  Action --> Input["入力の注入<br/>（InputInjector）"]
 ```
+
+セッションが行動の送出、観測の整形、成果物の保存、停止条件の判定を各担当へ委ねる関係を示します。
 
 ゲーム側との接点は `GameAdapterRegistry` だけ:
 
