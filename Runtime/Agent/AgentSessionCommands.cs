@@ -1,4 +1,6 @@
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace UniTestify
@@ -92,7 +94,40 @@ namespace UniTestify
                 return RejectAction(action, AgentActionWait.SynchronousWaitRequiredMessage);
             }
 
+            if (AgentActionExecutor.GetActionKind(action) == "text" && InputInjector.RequiresTextInputVerification)
+            {
+                return RejectAction(action, AgentActionExecutor.TextRequiresAsyncMessage);
+            }
+
             return ToJson(true, _currentSession.SessionId, "行動を処理しました。", _currentSession.Act(action), _currentSession.OutputDirectory);
+        }
+
+        /// <summary>text の未反映を失敗応答に変換し、非同期の呼び出し元が完了を待てるようにします。</summary>
+        internal static IEnumerator<object> ActAsync(AgentAction action, Action<string> completed)
+        {
+            if (_currentSession == null || AgentActionExecutor.GetActionKind(action) != "text")
+            {
+                completed(Act(JsonUtility.ToJson(action)));
+                yield break;
+            }
+
+            AiCommandArguments.ValidateDuration(action.timeoutSeconds, nameof(action.timeoutSeconds), true);
+            if (AgentActionWait.HasConditions(action) && !UiInputLocator.IsAnchorSatisfied(AgentActionWait.CreateAnchor(action)))
+            {
+                completed(RejectAction(action, AgentActionWait.SynchronousWaitRequiredMessage));
+                yield break;
+            }
+
+            // 待機中のセッション切り替えで、結果が別セッションの識別子へ混入するのを防ぐ。
+            var session = _currentSession;
+            using (var execution = session.ActAsync(action, (success, message, observation) =>
+                completed(ToJson(success, session.SessionId, message, observation, session.OutputDirectory))))
+            {
+                while (execution.MoveNext())
+                {
+                    yield return execution.Current;
+                }
+            }
         }
 
         /// <summary>未成立の待機要求を入力として送らず、失敗応答と履歴へ同じ理由を残します。</summary>
