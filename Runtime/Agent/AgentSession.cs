@@ -1,5 +1,6 @@
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace UniTestify
@@ -22,6 +23,7 @@ namespace UniTestify
         private bool _ended;
         private bool _disposed;
         private bool _sessionStateEntered;
+        private bool _isTextInputRunning;
 
         private AgentSession(AgentGoal goal, AgentOptions options)
         {
@@ -51,7 +53,7 @@ namespace UniTestify
         /// <summary>継続入力（hold / stick / drag 等）がまだ進行中なら true。落ち着き待ちの判断材料にする。</summary>
         public bool IsInputBusy
         {
-            get { return _driver != null && _driver.IsBusy; }
+            get { return _isTextInputRunning || (_driver != null && _driver.IsBusy); }
         }
 
         /// <summary>セッション識別子を返し、外部ログと DebugOutput の対応を固定します。</summary>
@@ -87,21 +89,42 @@ namespace UniTestify
         /// <summary>1 手を実行し、拒否理由や詰み判定を同じテキストで返します。外部 LLM が次の判断へ失敗情報を戻せるようにするためです。</summary>
         public string Act(AgentAction action)
         {
+            if (AgentActionExecutor.GetActionKind(action) == "text" && InputInjector.RequiresTextInputVerification)
+            {
+                return RejectAction(action, AgentActionExecutor.TextRequiresAsyncMessage);
+            }
+
+            var observation = string.Empty;
+            // 同期入口の既存動作を維持し、検証不要な text を含む継続入力は既存ドライバに委ねる。
+            using (var execution = ActAsync(action, (success, message, result) => observation = result, waitForText: false))
+            {
+                execution.MoveNext();
+            }
+
+            return observation;
+        }
+
+        /// <summary>text の検証結果が確定してから応答・行動履歴・目標判定を更新します。</summary>
+        internal IEnumerator<object> ActAsync(AgentAction action, Action<bool, string, string> completed, bool waitForText = true)
+        {
             if (_ended)
             {
-                return _formatter.BuildStatusText("ended", "セッションは終了済みです。", Observe(false));
+                completed(true, string.Empty, _formatter.BuildStatusText("ended", "セッションは終了済みです。", Observe(false)));
+                yield break;
             }
 
             if (_guards.IsStepBudgetExceeded(_artifacts.StepCount))
             {
                 Finish("maxSteps", "手数上限に到達しました。");
-                return _formatter.BuildStatusText(_result, _message, Observe(false));
+                completed(true, string.Empty, _formatter.BuildStatusText(_result, _message, Observe(false)));
+                yield break;
             }
 
             if (_guards.IsTimeBudgetExceeded(_artifacts.StartedAtRealtime, Time.realtimeSinceStartupAsDouble))
             {
                 Finish("maxSeconds", "実時間上限に到達しました。");
-                return _formatter.BuildStatusText(_result, _message, Observe(false));
+                completed(true, string.Empty, _formatter.BuildStatusText(_result, _message, Observe(false)));
+                yield break;
             }
 
             var beforeSnapshot = UiSnapshot.Capture();
@@ -111,7 +134,8 @@ namespace UniTestify
             var actionKey = AgentActionExecutor.BuildActionKey(action);
             if (_guards.IsForbidden(actionKey, target))
             {
-                return RejectAction(action, beforeObservationKey, actionKind, target, "forbid に一致するため拒否しました。");
+                completed(true, string.Empty, RejectAction(action, beforeObservationKey, actionKind, target, "forbid に一致するため拒否しました。"));
+                yield break;
             }
 
             if (!_goal.freePlay && _guards.IsStuck(beforeObservationKey, actionKey))
@@ -119,20 +143,44 @@ namespace UniTestify
                 Finish("stuck", "同じ観測または同じ観測で同じ行動が反復したため停止しました。");
                 _artifacts.SaveAbnormalCapture("stuck");
                 _artifacts.AppendActionLog(action, beforeObservationKey, actionKind, target, "stuck", _message, string.Empty);
-                return _formatter.BuildStatusText(_result, _message, _formatter.BuildFullObservation(beforeSnapshot));
+                completed(true, string.Empty, _formatter.BuildStatusText(_result, _message, _formatter.BuildFullObservation(beforeSnapshot)));
+                yield break;
             }
 
             var forensicsStartCount = _forensics == null ? 0 : _forensics.CapturedCount;
             var message = string.Empty;
-            try
+            var inputFailed = false;
+            if (actionKind == "text" && waitForText)
             {
-                message = _executor.ExecuteAction(action);
+                using (var execution = ExecuteTextAsync(action, failureMessage =>
+                {
+                    inputFailed = true;
+                    message = failureMessage;
+                }))
+                {
+                    while (execution.MoveNext())
+                    {
+                        yield return execution.Current;
+                    }
+                }
+
+                if (!inputFailed)
+                {
+                    message = "text の送信と確認が完了しました。";
+                }
             }
-            catch (Exception exception)
+            else
             {
-                UnityEngine.Debug.LogException(exception);
-                _artifacts.SaveAbnormalCapture("exception");
-                message = $"例外発生: {exception.GetType().Name} {exception.Message}";
+                try
+                {
+                    message = _executor.ExecuteAction(action);
+                }
+                catch (Exception exception)
+                {
+                    UnityEngine.Debug.LogException(exception);
+                    _artifacts.SaveAbnormalCapture("exception");
+                    message = $"例外発生: {exception.GetType().Name} {exception.Message}";
+                }
             }
 
             if (_forensics != null && _forensics.CapturedCount > forensicsStartCount)
@@ -145,15 +193,36 @@ namespace UniTestify
             var diff = UiSnapshot.Compare(beforeSnapshot, afterSnapshot);
             var diffText = _formatter.FormatDiff(diff);
             _lastSnapshot = afterSnapshot;
-            _artifacts.AppendActionLog(action, beforeObservationKey, actionKind, target, "acted", message, diffText);
+            _artifacts.AppendActionLog(action, beforeObservationKey, actionKind, target, inputFailed ? "rejected" : "acted", message, diffText);
 
-            if (IsGoalReached(afterSnapshot, diff))
+            if (!inputFailed && IsGoalReached(afterSnapshot, diff))
             {
                 Finish("reached", "目標を達成しました。");
             }
 
             SaveSessionReport();
-            return _formatter.BuildStatusText(_result, message, _formatter.BuildFullObservation(afterSnapshot));
+            var status = inputFailed ? "rejected" : _result;
+            completed(!inputFailed, message, _formatter.BuildStatusText(status, message, _formatter.BuildFullObservation(afterSnapshot)));
+        }
+
+        private IEnumerator<object> ExecuteTextAsync(AgentAction action, Action<string> addFailure)
+        {
+            _isTextInputRunning = true;
+            try
+            {
+                using (var execution = _executor.ExecuteTextAsync(action,
+                    (kind, target, button, message, detail) => addFailure(message)))
+                {
+                    while (execution.MoveNext())
+                    {
+                        yield return execution.Current;
+                    }
+                }
+            }
+            finally
+            {
+                _isTextInputRunning = false;
+            }
         }
 
         /// <summary>目標条件を 02 の expect 語彙で評価し、LLM の自己申告を成功条件にしないようにします。</summary>

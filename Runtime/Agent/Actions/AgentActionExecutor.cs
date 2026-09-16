@@ -1,5 +1,6 @@
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 #if ENABLE_INPUT_SYSTEM
@@ -13,6 +14,9 @@ namespace UniTestify
     internal sealed class AgentActionExecutor
     {
         private const float DefaultContinuousSeconds = 0.1f;
+
+        /// <summary>同期入口から未検証の text を成功として返さないための案内です。</summary>
+        internal const string TextRequiresAsyncMessage = "text は入力後の値変更を確認するためフレーム待機が必要です。入力は送信していません。メールボックス・HTTP の agent.act または非同期 API を利用してください。";
 
         private readonly Func<AgentSessionDriver> _ensureDriver;
 
@@ -95,6 +99,11 @@ namespace UniTestify
 
             if (!string.IsNullOrEmpty(action.text))
             {
+                if (InputInjector.RequiresTextInputVerification)
+                {
+                    return TextRequiresAsyncMessage;
+                }
+
                 _ensureDriver().Run(InputInjector.Text(action.text));
                 return "text を開始しました。";
             }
@@ -151,6 +160,24 @@ namespace UniTestify
             }
 
             return AgentActionWait.HasConditions(action) ? "待機条件が成立しました。" : "解釈できる入力がありません。";
+        }
+
+        /// <summary>text の事後検証を待ち、シナリオと同じ失敗通知で未反映を報告します。</summary>
+        internal IEnumerator<object> ExecuteTextAsync(AgentAction action, Action<string, string, string, string, string> addFailure)
+        {
+            var failureMessage = string.Empty;
+            using (var execution = InputInjector.Text(action.text, message => failureMessage = message))
+            {
+                while (execution.MoveNext())
+                {
+                    yield return execution.Current;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(failureMessage))
+            {
+                addFailure("text", string.Empty, string.Empty, failureMessage, string.Empty);
+            }
         }
 
         private string ExecuteSubmit(string targetName)

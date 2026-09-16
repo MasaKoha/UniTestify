@@ -373,7 +373,16 @@ namespace UniTestify
                 var previousStepCount = AgentSessionCommands.RecordedStepCount;
                 var before = UiSnapshot.Capture();
                 // タイムアウトでも既存の入力経路へ渡し、拒否理由や座標入力の挙動を維持する。
-                var response = ConvertResult(context.Operation, AgentSessionCommands.Act(JsonUtility.ToJson(action)));
+                AiCommandResponse response = null;
+                using (var execution = AgentSessionCommands.ActAsync(action,
+                    result => response = ConvertResult(context.Operation, result)))
+                {
+                    while (execution.MoveNext())
+                    {
+                        yield return execution.Current;
+                    }
+                }
+
                 response.ready = ready;
                 response.waitedMs = waitedMilliseconds;
                 if (!response.ok || (!string.IsNullOrEmpty(targetSpecification) && !ready))

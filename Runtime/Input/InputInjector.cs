@@ -4,6 +4,8 @@ using UnityEngine;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 #if ENABLE_INPUT_SYSTEM
+using TMPro;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using TouchPhase = UnityEngine.InputSystem.TouchPhase;
@@ -21,6 +23,8 @@ namespace UniTestify
         /// <summary>自動復旧後も入力を届けられない場合に、原因と次の操作を同じ文面で伝えます。</summary>
         private const string FocusDependentInputFailureMessage =
             "Game View のフォーカス取得を試みましたが、1 フレーム待っても非フォーカスのため、入力を送信しませんでした。Unity アプリ自体が背面にある可能性があります。Unity を前面にして Game View にフォーカスを合わせてから再実行してください。";
+
+        private const string TextUnchangedFailureMessage = "textUnchanged: 選択中の TMP_InputField の値が文字送信後も変わりませんでした。";
 
 #if ENABLE_INPUT_SYSTEM
         private const string GamepadDeviceName = "UniLabAI Gamepad";
@@ -191,26 +195,77 @@ namespace UniTestify
         }
 
         /// <summary>
-        /// 文字列は TextEvent を 1 文字ずつ送ることで、TMP_InputField へ OS 非依存に文字を入れるための入力です。
+        /// 既存の呼び出しでも入力欄の有効化と送出結果の検証を行います。
         /// </summary>
         public static IEnumerator Text(string text)
         {
+            return Text(text, ReportTextInputFailure);
+        }
+
+        /// <summary>同期入口が値変更を検証できない入力欄だけを、未送信の失敗として扱うために使います。</summary>
+        internal static bool RequiresTextInputVerification
+        {
+            get
+            {
 #if ENABLE_INPUT_SYSTEM
-            var keyboard = EnsureKeyboard();
+                return GetSelectedTextInputField() != null;
+#else
+                return false;
+#endif
+            }
+        }
+
+        /// <summary>選択だけでは文字を受け取れない入力欄を有効化し、値が変わらない失敗を呼び出し元へ返します。</summary>
+        public static IEnumerator<object> Text(string text, System.Action<string> completed)
+        {
             if (string.IsNullOrEmpty(text))
             {
+                completed(string.Empty);
                 yield break;
             }
 
+#if ENABLE_INPUT_SYSTEM
+            var inputField = GetSelectedTextInputField();
+            var verifiesInputField = inputField != null;
+            if (verifiesInputField)
+            {
+                inputField.ActivateInputField();
+                // TMP の入力受付状態は LateUpdate で反映されるため、送出前に一度フレームを進める。
+                yield return null;
+            }
+
+            var previousValue = inputField == null ? string.Empty : inputField.text;
+            var keyboard = EnsureKeyboard();
             for (var characterIndex = 0; characterIndex < text.Length; characterIndex++)
             {
                 InputSystem.QueueTextEvent(keyboard, text[characterIndex]);
                 InputSystem.Update();
                 yield return null;
             }
+
+            var unchanged = verifiesInputField && (inputField == null || inputField.text == previousValue);
+            completed(unchanged ? TextUnchangedFailureMessage : string.Empty);
 #else
+            completed("Input System が有効ではありません。");
             yield break;
 #endif
+        }
+
+#if ENABLE_INPUT_SYSTEM
+        private static TMP_InputField GetSelectedTextInputField()
+        {
+            // perf: text 要求時だけ探索し、常駐処理や一文字ごとの送信には探索を追加しない。
+            var selectedObject = EventSystem.current == null ? null : EventSystem.current.currentSelectedGameObject;
+            return selectedObject == null ? null : selectedObject.GetComponent<TMP_InputField>();
+        }
+#endif
+
+        private static void ReportTextInputFailure(string message)
+        {
+            if (!string.IsNullOrEmpty(message))
+            {
+                UnityEngine.Debug.LogWarning($"[InputInjector] {message}");
+            }
         }
 
         /// <summary>

@@ -92,7 +92,20 @@ namespace UniTestify
 
             if (!string.IsNullOrEmpty(step.text))
             {
-                yield return InputInjector.Text(step.text);
+                var failureMessage = string.Empty;
+                using (var execution = InputInjector.Text(step.text, message => failureMessage = message))
+                {
+                    while (execution.MoveNext())
+                    {
+                        yield return execution.Current;
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(failureMessage))
+                {
+                    addFailure("text", string.Empty, string.Empty, failureMessage, string.Empty);
+                }
+
                 yield break;
             }
 
