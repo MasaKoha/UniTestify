@@ -12,11 +12,11 @@ UniTestify は画面を 1 枚のテキストに変換する。何があって、
 何が無効で、何に遮られているかが、そのまま文字で返ってくる。
 
 ```
-scene=Home focus=DollRow/DollButton0(アリア)
+scene=Home focus=PartyRow/MemberButton0(Rin)
 [Text] AssetsBar/GoldValue 「120G」
-[Button] WorkshopTabBarView/TabButton0 「編成」 !disabled
-[Button] DollRow/DollButton0 「[F] アリア 戦士 Lv2」 *focused
-[Button] Content/MarketRuneListRow6 「明 呪詛のルーン」 blocked:Panel [clipped]
+[Button] MenuTabBar/TabButton0 「編成」 !disabled
+[Button] PartyRow/MemberButton0 「[F] Rin 戦士 Lv2」 *focused
+[Button] Content/ShopItemRow6 「氷 凍える護符」 blocked:Panel [clipped]
 game: gold=120 run.floor=2 battle.active=false
 agent: busy=inputBlocked
 ```

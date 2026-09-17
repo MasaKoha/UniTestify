@@ -280,7 +280,7 @@ CLI の撮影は従来どおり PNG の生成完了を待たず、`width=height=
 
 | キー | 例 | 意味 |
 |---|---|---|
-| `submit` | `"NewGameButton"` / `"label:剛 攻撃のルーン"` / `"Panel/Row0"` | UI の決定。名前・パス断片・ラベル部分一致 |
+| `submit` | `"NewGameButton"` / `"label:炎 燃える護符"` / `"Panel/Row0"` | UI の決定。名前・パス断片・ラベル部分一致 |
 | `press` | `south` `east` `north` `west` `start` `select` `leftShoulder` `rightShoulder` | パッド単打（`east` が B/戻る） |
 | `hold` + `seconds` | | 長押し |
 | `move` | `up` `down` `left` `right` | 十字キー（フォーカス移動） |
@@ -290,7 +290,7 @@ CLI の撮影は従来どおり PNG の生成完了を待たず、`width=height=
 | `click` / `tap` / `pointerMove` / `scroll` + `button` / `amount` | 要素名か `x` `y` | ポインタ・タッチ |
 | `drag` / `swipe` + `from` `to`（要素名）or `fromX/fromY/toX/toY` + `seconds` | | ドラッグ・スワイプ |
 | `pinch` + `center` `fromDistance` `toDistance` | | ピンチ |
-| `scrollTo` | `"MarketRuneListRow8"` | 祖先 ScrollRect の表示範囲へ入れる（フォーカスは動かさない） |
+| `scrollTo` | `"ShopItemRow8"` | 祖先 ScrollRect の表示範囲へ入れる（フォーカスは動かさない） |
 | `reason` | | 行動理由（`actions.jsonl` に残る） |
 | `waitForText` / `waitForObject` / `waitForFocus` / `waitForScene` | `"waitForObject":"InventoryPanel"` | 行動前に待つ条件。複数指定はすべて成立するまで待つ |
 | `timeoutSeconds` | `30`（既定） | `waitFor*` の実時間上限。有限の正数を指定する |
@@ -433,17 +433,17 @@ Selectable 配下の文言は親のラベルへまとめる。観測用ラベル
 `waitForText` は両方に対し、有効状態・文字色・Canvas・祖先 CanvasGroup の透明度を判定する。
 
 ```
-scene=Home focus=DollRow/DollButton0(アリア)
+scene=Home focus=PartyRow/MemberButton0(Rin)
 [Text] AssetsBar/GoldValue 「120G」
-[Button] WorkshopTabBarView/TabButton0 「編成」 !disabled
-[Button] DollRow/DollButton0 「[F] アリア 戦士 Lv2」 *focused
-[Button] Content/MarketRuneListRow6 「明 呪詛のルーン」 blocked:Panel [clipped]
+[Button] MenuTabBar/TabButton0 「編成」 !disabled
+[Button] PartyRow/MemberButton0 「[F] Rin 戦士 Lv2」 *focused
+[Button] Content/ShopItemRow6 「氷 凍える護符」 blocked:Panel [clipped]
 game: gold=120 run.floor=2 battle.active=false
 agent: busy=inputBlocked
 agent: settleFrames=1
 
 actions:
- - submit/click/tap target=Canvas/…/DollButton0 label=[F] アリア 戦士 Lv2
+ - submit/click/tap target=Canvas/…/MemberButton0 label=[F] Rin 戦士 Lv2
  - scrollTo=<target>
  - press=south/east/north/west/start/select/leftShoulder/rightShoulder
  - move=up/down/left/right
