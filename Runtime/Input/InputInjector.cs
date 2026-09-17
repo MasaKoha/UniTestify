@@ -534,7 +534,7 @@ namespace UniTestify
         private static IEnumerator KeyCoroutine(Key key)
         {
             // キーボードもフォーカスを要する。確認せずに送ると Input System が黙って捨て、
-            // 応答は成功のまま何も起きない（Karakuri-client #461）。
+            // 応答は成功のまま何も起きない（利用側プロジェクトで報告された事例）。
             if (!IsFocusDependentInputAvailable)
             {
                 yield return EnsureFocusDependentInputAsync(ReportFocusDependentInputFailure);

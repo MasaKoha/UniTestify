@@ -217,7 +217,7 @@ namespace UniTestify
         /// <summary>
         /// Game View のフォーカスを要する行動か。Input System の既定
         /// PointersAndKeyboardsRespectGameViewFocus では、ポインタ「と キーボード」が対象。
-        /// ゲームパッドだけは非フォーカスでも届く（Karakuri-client #461）。
+        /// ゲームパッドだけは非フォーカスでも届く。
         /// </summary>
         private static bool HasFocusDependentAction(AgentAction action)
         {

@@ -16,7 +16,7 @@
     { "submit": "NewGameButton", "settleFrames": 120 },
     { "submit": "MessageButton1", "waitScene": "Home", "settleFrames": 150 },
     { "submit": "TabButton1", "capture": "05_rune_tab", "audit": true },
-    { "submit": "RuneListRow0", "expect": [ { "kind": "textVisible", "value": "ルーン詳細" } ] }
+    { "submit": "ItemListRow0", "expect": [ { "kind": "textVisible", "value": "アイテム詳細" } ] }
   ]
 }
 ```
@@ -63,7 +63,7 @@
 
 - 名前: `"NewGameButton"`（階層のどこにあっても最初に見つかったもの）
 - パス断片: `"ButtonRow/MessageButton1"`
-- ラベル部分一致: `"label:剛 攻撃のルーン"`（同名の行 `ListRowButton(Clone)` を選ぶとき）
+- ラベル部分一致: `"label:炎 燃える護符"`（同名の行 `ListRowButton(Clone)` を選ぶとき）
 
 ## 押せるまで待つ、の中身
 

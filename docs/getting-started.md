@@ -127,9 +127,9 @@ python3 $CLIENT ping
 python3 $CLIENT agent.begin '{"goal":{"freePlay":true,"maxSteps":5000,"maxSeconds":14400}}'
 python3 $CLIENT agent.observe
 python3 $CLIENT agent.act '{"action":{"submit":"NewGameButton"}}'
-python3 $CLIENT agent.act '{"steps":[{"press":"east"},{"submit":"TabButton1","expect":[{"kind":"textVisible","value":"ルーン"}]}]}'
+python3 $CLIENT agent.act '{"steps":[{"press":"east"},{"submit":"TabButton1","expect":[{"kind":"textVisible","value":"アイテム"}]}]}'
 python3 $CLIENT agent.find '{"label":"雷撃"}'
-python3 $CLIENT agent.act '{"action":{"scrollTo":"MarketRuneListRow8"}}'
+python3 $CLIENT agent.act '{"action":{"scrollTo":"ShopItemRow8"}}'
 python3 $CLIENT agent.observe '{"capture":"market"}'
 python3 $CLIENT console '{"count":40,"level":"error"}'
 python3 $CLIENT agent.export '{"name":"my-tour"}'
