@@ -116,13 +116,13 @@ namespace UniTestify
             if (!string.IsNullOrEmpty(action.pointerMove))
             {
                 InputInjector.PointerMove(ResolveScreenPosition(action.pointerMove, action.x, action.y));
-                return "pointerMove を送信しました。";
+                return AppendPointerContention("pointerMove を送信しました。");
             }
 
             if (!string.IsNullOrEmpty(action.click))
             {
                 InputInjector.Click(ResolveScreenPosition(action.click, action.x, action.y), ParsePointerButton(action.button));
-                return "click を送信しました。";
+                return AppendPointerContention("click を送信しました。");
             }
 
             if (!string.IsNullOrEmpty(action.scroll))
@@ -322,6 +322,18 @@ namespace UniTestify
                 case "right": return FocusDirection.Right;
                 default: return FocusDirection.None;
             }
+        }
+
+        /// <summary>
+        /// ポインタ入力の応答に、デバイスの取り合いが起きているときだけ注意書きを足します。
+        ///
+        /// 送信自体は成功しているのに UI へ届かないことがあり、成功だけを返すと
+        /// 「効いていない」と区別がつかない（#445）。
+        /// </summary>
+        private static string AppendPointerContention(string message)
+        {
+            var warning = InputInjector.DescribePointerDeviceContention();
+            return string.IsNullOrEmpty(warning) ? message : message + " " + warning;
         }
 
         private static PointerButton ParsePointerButton(string button)
