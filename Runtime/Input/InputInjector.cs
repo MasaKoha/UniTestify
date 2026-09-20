@@ -739,7 +739,55 @@ namespace UniTestify
             _mouseState.position = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
             InputSystem.QueueStateEvent(_mouse, _mouseState);
             InputSystem.Update();
+            // 注入中はこちらを current にしておく。物理マウスと 2 台並ぶため、
+            // UI 側がどちらを見るかを送信側で決めておかないと取り合いになる（#445）。
+            _mouse.MakeCurrent();
             return _mouse;
+        }
+
+        /// <summary>
+        /// 仮想マウスを用意し、その名前を返します。取り合いの検出を確かめる用途に使います。
+        ///
+        /// 入力の送信は行わないためフォーカスを要しません。
+        /// フォーカスに依存すると、非フォーカスの環境で検査が空振りしたまま緑になります。
+        /// </summary>
+        public static string EnsurePointerDeviceForDiagnostics()
+        {
+#if ENABLE_INPUT_SYSTEM
+            return EnsureMouse().name;
+#else
+            return string.Empty;
+#endif
+        }
+
+        /// <summary>
+        /// 送った直後に、仮想マウスが current を保てているかを調べます。
+        ///
+        /// 物理マウスが動くと current を奪い、送信自体は成功しているのに UI へ届かないことがある
+        /// （2026-09-20 実測: 34 回中 1 回。失敗時は Mouse.current が物理側だった）。
+        /// **黙って成功として返さない**ための検出で、競合そのものを防ぐものではありません。
+        /// </summary>
+        public static string DescribePointerDeviceContention()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (_mouse == null || !_mouse.added)
+            {
+                return string.Empty;
+            }
+
+            var current = Mouse.current;
+            if (current == null || ReferenceEquals(current, _mouse))
+            {
+                return string.Empty;
+            }
+
+            return "ポインタ入力が届いていない可能性があります。"
+                + "注入した『" + MouseDeviceName + "』ではなく『" + current.name + "』が current です。"
+                + "物理マウスが動くと current を奪い、送信は成功しても UI が反応しないことがあります。"
+                + "画面が変わったかを observe で確かめ、変わっていなければ送り直してください。";
+#else
+            return string.Empty;
+#endif
         }
 
         private static Touchscreen EnsureTouchscreen()
