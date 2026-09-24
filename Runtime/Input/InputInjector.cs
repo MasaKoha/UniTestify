@@ -235,12 +235,26 @@ namespace UniTestify
             }
 
             var previousValue = inputField == null ? string.Empty : inputField.text;
-            var keyboard = EnsureKeyboard();
-            for (var characterIndex = 0; characterIndex < text.Length; characterIndex++)
+            if (verifiesInputField)
             {
-                InputSystem.QueueTextEvent(keyboard, text[characterIndex]);
-                InputSystem.Update();
-                yield return null;
+                // TMP_InputField は文字を IMGUI の Event.PopEvent からしか読まず、
+                // InputSystem.QueueTextEvent の文字は届かない。公開の ProcessEvent へ直接渡す。
+                for (var characterIndex = 0; characterIndex < text.Length; characterIndex++)
+                {
+                    inputField.ProcessEvent(CreateCharacterEvent(text[characterIndex]));
+                    yield return null;
+                }
+                inputField.ForceLabelUpdate();
+            }
+            else
+            {
+                var keyboard = EnsureKeyboard();
+                for (var characterIndex = 0; characterIndex < text.Length; characterIndex++)
+                {
+                    InputSystem.QueueTextEvent(keyboard, text[characterIndex]);
+                    InputSystem.Update();
+                    yield return null;
+                }
             }
 
             var unchanged = verifiesInputField && (inputField == null || inputField.text == previousValue);
@@ -252,6 +266,11 @@ namespace UniTestify
         }
 
 #if ENABLE_INPUT_SYSTEM
+        private static Event CreateCharacterEvent(char character)
+        {
+            return new Event { type = EventType.KeyDown, keyCode = KeyCode.None, character = character };
+        }
+
         private static TMP_InputField GetSelectedTextInputField()
         {
             // perf: text 要求時だけ探索し、常駐処理や一文字ごとの送信には探索を追加しない。
@@ -746,21 +765,6 @@ namespace UniTestify
         }
 
         /// <summary>
-        /// 仮想マウスを用意し、その名前を返します。取り合いの検出を確かめる用途に使います。
-        ///
-        /// 入力の送信は行わないためフォーカスを要しません。
-        /// フォーカスに依存すると、非フォーカスの環境で検査が空振りしたまま緑になります。
-        /// </summary>
-        public static string EnsurePointerDeviceForDiagnostics()
-        {
-#if ENABLE_INPUT_SYSTEM
-            return EnsureMouse().name;
-#else
-            return string.Empty;
-#endif
-        }
-
-        /// <summary>
         /// 送った直後に、仮想マウスが current を保てているかを調べます。
         ///
         /// 物理マウスが動くと current を奪い、送信自体は成功しているのに UI へ届かないことがある
@@ -776,18 +780,30 @@ namespace UniTestify
             }
 
             var current = Mouse.current;
-            if (current == null || ReferenceEquals(current, _mouse))
+            return DescribePointerDeviceContention(_mouse.name, current == null ? null : current.name);
+#else
+            return string.Empty;
+#endif
+        }
+
+        /// <summary>
+        /// 注入したマウスと current のマウスの名前から、取り合いの注意書きを組み立てます。
+        ///
+        /// 再生中にデバイスを足し外しする検査は Input System 内部の Assert を不定期に出すため、
+        /// 判定をデバイスに依存しない形に切り出して検査できるようにしています。
+        /// Input System はデバイス名を一意に振り直すので、名前の一致は同じデバイスを意味します。
+        /// </summary>
+        internal static string DescribePointerDeviceContention(string injectedDeviceName, string currentDeviceName)
+        {
+            if (string.IsNullOrEmpty(currentDeviceName) || currentDeviceName == injectedDeviceName)
             {
                 return string.Empty;
             }
 
             return "ポインタ入力が届いていない可能性があります。"
-                + "注入した『" + MouseDeviceName + "』ではなく『" + current.name + "』が current です。"
+                + "注入した『" + injectedDeviceName + "』ではなく『" + currentDeviceName + "』が current です。"
                 + "物理マウスが動くと current を奪い、送信は成功しても UI が反応しないことがあります。"
                 + "画面が変わったかを observe で確かめ、変わっていなければ送り直してください。";
-#else
-            return string.Empty;
-#endif
         }
 
         private static Touchscreen EnsureTouchscreen()
