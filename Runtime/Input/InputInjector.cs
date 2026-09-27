@@ -880,7 +880,8 @@ namespace UniTestify
                 case FocusDirection.Right:
                     return GamepadButton.DpadRight;
                 default:
-                    return GamepadButton.DpadUp;
+                    // 既定で上を押すと、方向の解釈に失敗した検証が黙って逆方向を押す。押さずに落とす。
+                    throw new System.ArgumentOutOfRangeException(nameof(direction), direction, "方向が指定されていません。");
             }
         }
 

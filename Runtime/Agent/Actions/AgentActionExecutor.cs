@@ -87,7 +87,12 @@ namespace UniTestify
 
             if (!string.IsNullOrEmpty(action.move))
             {
-                InputInjector.Move(ParseDirection(action.move));
+                if (!FocusDirectionParser.TryParse(action.move, out var direction))
+                {
+                    return "未対応の move です（up / down / left / right）。";
+                }
+
+                InputInjector.Move(direction);
                 return "move を送信しました。";
             }
 
@@ -312,17 +317,6 @@ namespace UniTestify
             return new Vector2(fallbackX, fallbackY);
         }
 
-        private static FocusDirection ParseDirection(string direction)
-        {
-            switch (direction)
-            {
-                case "up": return FocusDirection.Up;
-                case "down": return FocusDirection.Down;
-                case "left": return FocusDirection.Left;
-                case "right": return FocusDirection.Right;
-                default: return FocusDirection.None;
-            }
-        }
 
         /// <summary>
         /// ポインタ入力の応答に、デバイスの取り合いが起きているときだけ注意書きを足します。
