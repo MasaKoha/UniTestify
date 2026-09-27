@@ -80,7 +80,15 @@ namespace UniTestify
 
             if (!string.IsNullOrEmpty(step.move))
             {
-                InputInjector.Move(ParseDirection(step.move));
+                if (FocusDirectionParser.TryParse(step.move, out var direction))
+                {
+                    InputInjector.Move(direction);
+                }
+                else
+                {
+                    addFailure("move", string.Empty, step.move, "未対応の方向です（up / down / left / right）。", string.Empty);
+                }
+
                 yield break;
             }
 
@@ -232,17 +240,6 @@ namespace UniTestify
             return new Vector2(fallbackX, fallbackY);
         }
 
-        private static FocusDirection ParseDirection(string direction)
-        {
-            switch (direction)
-            {
-                case "up": return FocusDirection.Up;
-                case "down": return FocusDirection.Down;
-                case "left": return FocusDirection.Left;
-                case "right": return FocusDirection.Right;
-                default: return FocusDirection.None;
-            }
-        }
 
         private static PointerButton ParsePointerButton(string button)
         {
