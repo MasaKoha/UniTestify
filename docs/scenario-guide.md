@@ -38,6 +38,17 @@
 | `expect` | 事後条件の配列。未達は `failedSteps` に数え、`stopOnFail` なら打ち切る |
 | `comment` | 人向けメモ。AI セッションから書き出したときは「元の実行では未達」が入る |
 
+ゲームの状態を整える（Editor と Development Build だけ）:
+
+| キー | 意味 |
+|---|---|
+| `gameCommand` | 登録済みの `IGameCommandHandler` へ渡すコマンド名。資金やポイントの付与、乱数の固定など、画面操作では作りにくい前提を用意する。UI 操作とは別のステップに書く |
+| `gameArguments` | `名前=値` の文字列配列。空・書式違い・重複は失敗として報告する |
+
+```json
+{ "gameCommand": "addCorePoints", "gameArguments": ["amount=200"], "settleFrames": 30 }
+```
+
 成果物:
 
 | キー | 意味 |
