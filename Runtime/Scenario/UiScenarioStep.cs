@@ -17,6 +17,12 @@ namespace UniTestify
         /// </summary>
         public string submit;
 
+        /// <summary>登録済み IGameCommandHandler へ送るデバッグコマンド名。UI 入力とは別ステップで指定する。</summary>
+        public string gameCommand;
+
+        /// <summary>ゲームコマンドの引数。各要素を「名前=値」で指定する（例: amount=200）。</summary>
+        public string[] gameArguments;
+
         /// <summary>探索時の未達など、回帰再生で確認すべき背景を残します。</summary>
         public string comment;
 

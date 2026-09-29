@@ -39,6 +39,11 @@ namespace UniTestify
                 return primaryTarget;
             }
 
+            if (!string.IsNullOrEmpty(step.gameCommand))
+            {
+                return step.gameCommand;
+            }
+
             if (!string.IsNullOrEmpty(step.waitScene))
             {
                 return step.waitScene;
@@ -64,11 +69,18 @@ namespace UniTestify
 
         internal static bool HasAnyAction(UiScenarioStep step)
         {
-            return !string.IsNullOrEmpty(step.submit) || ScenarioInputExecutor.IsInputStep(step);
+            return !string.IsNullOrEmpty(step.submit)
+                || !string.IsNullOrEmpty(step.gameCommand)
+                || ScenarioInputExecutor.IsInputStep(step);
         }
 
         internal static string CreateActionLabel(UiScenarioStep step)
         {
+            if (!string.IsNullOrEmpty(step.gameCommand))
+            {
+                return $"game:{step.gameCommand}";
+            }
+
             if (!string.IsNullOrEmpty(step.submit))
             {
                 return $"submit:{step.submit}";

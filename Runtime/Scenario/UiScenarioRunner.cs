@@ -346,6 +346,14 @@ namespace UniTestify
             ForensicsContext.SetStep(stepIndex, actionLabel);
             _recordingCoordinator.UpdateRecordingContext();
             _recordingCoordinator.AddRecordingMarkerIfNeeded(actionLabel);
+            if (!string.IsNullOrEmpty(step.gameCommand))
+            {
+                if (!ScenarioGameCommandExecutor.TryExecute(step, GameAdapterRegistry.CommandHandler, out var message))
+                {
+                    AddFailure("gameCommand", step.gameCommand, string.Empty, message, string.Empty);
+                }
+                yield break;
+            }
             if (!string.IsNullOrEmpty(step.submit))
             {
                 InputOverlay.SetStepLabel($"決定 [{step.submit}]");
