@@ -80,7 +80,12 @@ namespace UniTestify.Tests
 
             InputInjector.Dispose();
             Object.Destroy(_root);
-            EventSystem.current = _previousEventSystem;
+            // 実行前に EventSystem が無かったときは null が入っている。null を current に渡すと
+            // 「unknown EventSystem」のエラーになり、前のテストの残り物しだいで結果が変わるため、在るときだけ戻す。
+            if (_previousEventSystem != null)
+            {
+                EventSystem.current = _previousEventSystem;
+            }
             yield return null;
 
             InputSystem.settings.backgroundBehavior = _previousBackgroundBehavior;
