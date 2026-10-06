@@ -29,7 +29,7 @@ namespace UniTestify
             }
 
             var pathSegments = objectPath.Split('/');
-            var candidateTransforms = UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Exclude);
+            var candidateTransforms = UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             for (var candidateIndex = 0; candidateIndex < candidateTransforms.Length; candidateIndex++)
             {
                 var candidateTransform = candidateTransforms[candidateIndex];
